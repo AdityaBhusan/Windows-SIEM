@@ -1,0 +1,18 @@
+# Logs and event data
+logs/
+*.log
+*.evtx
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.env
+
+# PowerShell
+*.ps1.xml
+
+# OS / IDE
+.vscode/
+.idea/
+Thumbs.db
