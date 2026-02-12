@@ -59,18 +59,86 @@ function Collect-AuthEvents {
         [void]$resultsArray.Add($record)
     }
 
-    # 🔥 GUARANTEED ARRAY OUTPUT (even for 0 or 1 event)
     $resultsArray.ToArray() |
         ConvertTo-Json -Depth 3 |
         Out-File -Encoding utf8 "$OutputDir/$OutputFile"
 
     Write-Host "[+] Saved $($resultsArray.Count) events to $OutputFile"
 }
+function Collect-AdminPrivilegeEvents {
+    param (
+        [string]$OutputFile
+    )
 
-# Collect failed logons
+    Write-Host "[*] Collecting Event ID 4672 (Admin Privileges)..."
+
+    $events = Get-WinEvent -LogName Security `
+        -FilterXPath "*[System[(EventID=4672)]]" `
+        -MaxEvents 50
+
+    $resultsArray = [System.Collections.ArrayList]::new()
+
+    foreach ($event in $events) {
+        $xml  = [xml]$event.ToXml()
+        $data = $xml.Event.EventData.Data
+
+        $record = @{
+            timestamp = $event.TimeCreated
+            event_id  = 4672
+            username  = Get-EventDataValue $data "SubjectUserName"
+            privileges = Get-EventDataValue $data "PrivilegeList"
+        }
+
+        [void]$resultsArray.Add($record)
+    }
+
+    $resultsArray.ToArray() |
+        ConvertTo-Json -Depth 3 |
+        Out-File -Encoding utf8 "$OutputDir/$OutputFile"
+
+    Write-Host "[+] Saved $($resultsArray.Count) admin privilege events"
+}
+function Collect-ProcessCreationEvents {
+    param (
+        [string]$OutputFile
+    )
+
+    Write-Host "[*] Collecting Event ID 4688 (Process Creation)..."
+
+    $events = Get-WinEvent -LogName Security `
+        -FilterXPath "*[System[(EventID=4688)]]" `
+        -MaxEvents 50
+
+    $resultsArray = [System.Collections.ArrayList]::new()
+
+    foreach ($event in $events) {
+        $xml  = [xml]$event.ToXml()
+        $data = $xml.Event.EventData.Data
+
+        $record = @{
+            timestamp     = $event.TimeCreated
+            event_id      = 4688
+            username      = Get-EventDataValue $data "SubjectUserName"
+            process_name  = Get-EventDataValue $data "NewProcessName"
+            command_line  = Get-EventDataValue $data "CommandLine"
+            parent_process = Get-EventDataValue $data "ParentProcessName"
+        }
+
+        [void]$resultsArray.Add($record)
+    }
+
+    $resultsArray.ToArray() |
+        ConvertTo-Json -Depth 3 |
+        Out-File -Encoding utf8 "$OutputDir/$OutputFile"
+
+    Write-Host "[+] Saved $($resultsArray.Count) process creation events"
+}
+
+
+
 Collect-AuthEvents -EventID 4625 -OutputFile "security_4625_failed.json"
-
-# Collect successful logons
 Collect-AuthEvents -EventID 4624 -OutputFile "security_4624_success.json"
+Collect-AdminPrivilegeEvents -OutputFile "security_4672_admin.json"
+Collect-ProcessCreationEvents -OutputFile "security_4688_process.json"
 
 Write-Host "Authentication event collection complete"
